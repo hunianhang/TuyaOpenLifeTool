@@ -131,6 +131,20 @@ static OPERATE_RET __set_alarm(const MCP_PROPERTY_LIST_T *properties, MCP_RETURN
     wukong_mcp_return_value_set_bool(ret_val, rt == OPRT_OK ? TRUE : FALSE);
     return OPRT_OK;
 }
+
+static OPERATE_RET __set_alarm_in_minutes(const MCP_PROPERTY_LIST_T *properties, MCP_RETURN_VALUE_T *ret_val, void *user_data)
+{
+    int minutes = 5;
+    for (int i = 0; i < properties->count; i++) {
+        MCP_PROPERTY_T *p = properties->properties[i];
+        if (strcmp(p->name, "minutes") == 0 && p->type == MCP_PROPERTY_TYPE_INTEGER)
+            minutes = p->default_val.int_val;
+    }
+    OPERATE_RET rt = app_alarm_set_in_minutes((uint32_t)minutes);
+    if (rt == OPRT_OK) app_alarm_upload();
+    wukong_mcp_return_value_set_bool(ret_val, rt == OPRT_OK ? TRUE : FALSE);
+    return OPRT_OK;
+}
 #endif
 
 #if defined(ENABLE_DASHBOARD) && (ENABLE_DASHBOARD == 1)
@@ -286,6 +300,13 @@ static OPERATE_RET __app_mcp_init(void *data)
                                            MCP_PROP_INT_RANGE("hour", "Hour (0-23).", 0, 23),
                                            MCP_PROP_INT_RANGE("minute", "Minute (0-59).", 0, 59),
                                            MCP_PROP_BOOL_DEF("enabled", "Enable or disable.", TRUE)),
+                       __ERR);
+    TUYA_CALL_ERR_GOTO(WUKONG_MCP_TOOL_ADD("device.alarm.set_in_minutes",
+                                           "Sets an alarm to ring in N minutes from now.\n"
+                                           "The alarm rings continuously until the STOP button is pressed.\n"
+                                           "Parameter: minutes (1-1440).",
+                                           __set_alarm_in_minutes, NULL,
+                                           MCP_PROP_INT_RANGE("minutes", "Minutes from now (1-1440).", 1, 1440)),
                        __ERR);
 #endif
 

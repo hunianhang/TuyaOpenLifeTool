@@ -13,6 +13,10 @@
 #include "app_dashboard.h"
 #endif
 
+#if defined(ENABLE_ALARM) && (ENABLE_ALARM == 1)
+#include "app_alarm.h"
+#endif
+
 /* ── Color palette ───────────────────────────────────────── */
 #define C_BG        lv_color_hex(0x141B27)
 #define C_CARD      lv_color_hex(0x1C2537)
@@ -36,8 +40,9 @@ static lv_obj_t *s_weather_lbl = NULL;
 static lv_obj_t *s_todo_lbl    = NULL;
 static lv_obj_t *s_med_lbl     = NULL;
 
-static lv_timer_t *s_clock_tmr  = NULL;
-static lv_timer_t *s_notify_tmr = NULL;
+static lv_timer_t *s_clock_tmr     = NULL;
+static lv_timer_t *s_notify_tmr    = NULL;
+static lv_obj_t   *s_alarm_overlay = NULL;
 
 /* ── Helpers ─────────────────────────────────────────────── */
 static const char *__month_abbr(uint32_t m)
@@ -229,6 +234,35 @@ static void __home_unloaded_cb(lv_event_t *e)
     app_ui_network_status_change_unsubscribe();
 }
 
+/* ── Alarm stop overlay ──────────────────────────────────── */
+static void __alarm_stop_cb(lv_event_t *e)
+{
+    if (lv_event_get_code(e) != LV_EVENT_CLICKED) return;
+#if defined(ENABLE_ALARM) && (ENABLE_ALARM == 1)
+    app_alarm_stop();
+#endif
+}
+
+static lv_obj_t *__make_alarm_overlay(lv_obj_t *parent)
+{
+    lv_obj_t *btn = lv_obj_create(parent);
+    lv_obj_remove_style_all(btn);
+    lv_obj_set_size(btn, lv_pct(100), 60);
+    lv_obj_set_style_bg_color(btn, lv_color_hex(0xC0392B), 0);
+    lv_obj_set_style_bg_opa(btn, LV_OPA_COVER, 0);
+    lv_obj_add_flag(btn, LV_OBJ_FLAG_CLICKABLE | LV_OBJ_FLAG_HIDDEN);
+    lv_obj_remove_flag(btn, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_add_event_cb(btn, __alarm_stop_cb, LV_EVENT_CLICKED, NULL);
+
+    lv_obj_t *lbl = lv_label_create(btn);
+    lv_label_set_text(lbl, LV_SYMBOL_BELL "  STOP ALARM");
+    lv_obj_set_style_text_color(lbl, lv_color_hex(0xFFFFFF), 0);
+    lv_obj_set_style_text_font(lbl, &lv_font_montserrat_16, 0);
+    lv_obj_center(lbl);
+
+    return btn;
+}
+
 /* ── Chat button ─────────────────────────────────────────── */
 static void __chat_btn_cb(lv_event_t *e)
 {
@@ -337,6 +371,9 @@ void ui_home_screen_init(void)
     lv_obj_set_style_text_color(chat_lbl, C_TEXT, 0);
     lv_obj_set_style_text_font(chat_lbl, &lv_font_montserrat_16, 0);
     lv_obj_center(chat_lbl);
+
+    /* Alarm stop button — hidden by default, floats above the chat button */
+    s_alarm_overlay = __make_alarm_overlay(ui_home);
 }
 
 void ui_home_screen_destroy(void)
@@ -345,6 +382,7 @@ void ui_home_screen_destroy(void)
     if (s_notify_tmr) { lv_timer_del(s_notify_tmr); s_notify_tmr = NULL; }
     s_status_lbl = s_time_lbl = s_date_lbl = s_notify_lbl = NULL;
     s_weather_lbl = s_todo_lbl = s_med_lbl = NULL;
+    s_alarm_overlay = NULL;
     if (ui_home) { lv_obj_del(ui_home); ui_home = NULL; }
 }
 
@@ -397,4 +435,15 @@ void ui_dashboard_refresh(void)
     __refresh_weather();
     __refresh_todo();
     __refresh_medicine();
+}
+
+void ui_alarm_stop_show(bool show)
+{
+    if (!s_alarm_overlay) return;
+    if (show) {
+        lv_obj_remove_flag(s_alarm_overlay, LV_OBJ_FLAG_HIDDEN);
+        lv_obj_move_foreground(s_alarm_overlay);
+    } else {
+        lv_obj_add_flag(s_alarm_overlay, LV_OBJ_FLAG_HIDDEN);
+    }
 }

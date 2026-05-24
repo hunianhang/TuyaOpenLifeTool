@@ -6,9 +6,12 @@
 
 #if defined(ENABLE_CHAT_DISPLAY2) && (ENABLE_CHAT_DISPLAY2 == 1)
 #include "app_display.h"
+#include "tuya_lvgl.h"
+#include "screens/ui_home.h"
 #endif
 
-#define KV_KEY "app_alarm_v1"
+#define KV_KEY        "app_alarm_v1"
+#define RING_INTERVAL 3000  /* ms between repeat tones while ringing */
 
 typedef struct {
     int  hour;
@@ -19,6 +22,8 @@ typedef struct {
 
 static alarm_state_t sg_alarm      = {7, 0, false, false};
 static TIMER_ID      sg_check_tmr  = NULL;
+static TIMER_ID      sg_ring_tmr   = NULL;
+static bool          sg_ringing    = false;
 
 static void __save(void)
 {
@@ -52,6 +57,35 @@ static void __load(void)
     PR_DEBUG("[alarm] loaded: %02d:%02d enabled=%d", sg_alarm.hour, sg_alarm.minute, sg_alarm.enabled);
 }
 
+static void __ring_timer_cb(TIMER_ID id, void *arg)
+{
+    if (!sg_ringing) return;
+    ai_audio_player_play_alert(AI_AUDIO_ALERT_WAKEUP);
+}
+
+static void __start_ringing(void)
+{
+    sg_ringing = true;
+    ai_audio_player_play_alert(AI_AUDIO_ALERT_WAKEUP);
+
+    if (NULL == sg_ring_tmr) {
+        tal_sw_timer_create(__ring_timer_cb, NULL, &sg_ring_tmr);
+    }
+    if (sg_ring_tmr) {
+        tal_sw_timer_start(sg_ring_tmr, RING_INTERVAL, TAL_TIMER_CYCLE);
+    }
+
+#if defined(ENABLE_CHAT_DISPLAY2) && (ENABLE_CHAT_DISPLAY2 == 1)
+    char msg[32];
+    snprintf(msg, sizeof(msg), "ALARM! %02d:%02d", sg_alarm.hour, sg_alarm.minute);
+    app_display_send_msg(TY_DISPLAY_TP_SYSTEM_MSG, (uint8_t *)msg, strlen(msg));
+    tuya_lvgl_mutex_lock();
+    ui_alarm_stop_show(true);
+    tuya_lvgl_mutex_unlock();
+#endif
+    PR_NOTICE("[alarm] fired at %02d:%02d", sg_alarm.hour, sg_alarm.minute);
+}
+
 static void __check_timer_cb(TIMER_ID id, void *arg)
 {
     if (!sg_alarm.enabled) return;
@@ -63,13 +97,7 @@ static void __check_timer_cb(TIMER_ID id, void *arg)
     if (tm.tm_hour == sg_alarm.hour && tm.tm_min == sg_alarm.minute) {
         if (!sg_alarm.triggered_today) {
             sg_alarm.triggered_today = true;
-            ai_audio_player_play_alert(AI_AUDIO_ALERT_WAKEUP);
-#if defined(ENABLE_CHAT_DISPLAY2) && (ENABLE_CHAT_DISPLAY2 == 1)
-            char msg[32];
-            snprintf(msg, sizeof(msg), "Alarm! %02d:%02d", sg_alarm.hour, sg_alarm.minute);
-            app_display_send_msg(TY_DISPLAY_TP_SYSTEM_MSG, (uint8_t *)msg, strlen(msg));
-#endif
-            PR_NOTICE("[alarm] fired at %02d:%02d", sg_alarm.hour, sg_alarm.minute);
+            __start_ringing();
         }
     } else {
         sg_alarm.triggered_today = false;
@@ -86,6 +114,36 @@ OPERATE_RET app_alarm_set(uint8_t hour, uint8_t minute, bool enabled)
     __save();
     PR_DEBUG("[alarm] set %02d:%02d enabled=%d", hour, minute, enabled);
     return OPRT_OK;
+}
+
+OPERATE_RET app_alarm_set_in_minutes(uint32_t minutes)
+{
+    if (OPRT_OK != tal_time_check_time_sync()) return OPRT_COM_ERROR;
+    POSIX_TM_S tm = {0};
+    tal_time_get_local_time_custom(0, &tm);
+    uint32_t total = (uint32_t)tm.tm_hour * 60 + (uint32_t)tm.tm_min + minutes;
+    return app_alarm_set((uint8_t)((total / 60) % 24), (uint8_t)(total % 60), true);
+}
+
+void app_alarm_stop(void)
+{
+    if (!sg_ringing) return;
+    sg_ringing               = false;
+    sg_alarm.triggered_today = true;  /* prevent re-trigger in same minute */
+    if (sg_ring_tmr) {
+        tal_sw_timer_stop(sg_ring_tmr);
+    }
+#if defined(ENABLE_CHAT_DISPLAY2) && (ENABLE_CHAT_DISPLAY2 == 1)
+    tuya_lvgl_mutex_lock();
+    ui_alarm_stop_show(false);
+    tuya_lvgl_mutex_unlock();
+#endif
+    PR_NOTICE("[alarm] stopped by user");
+}
+
+bool app_alarm_is_ringing(void)
+{
+    return sg_ringing;
 }
 
 void app_alarm_upload(void)

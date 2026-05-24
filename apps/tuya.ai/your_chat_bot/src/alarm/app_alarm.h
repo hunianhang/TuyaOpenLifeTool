@@ -10,6 +10,9 @@ extern "C" {
 
 OPERATE_RET app_alarm_init(void);
 OPERATE_RET app_alarm_set(uint8_t hour, uint8_t minute, bool enabled);
+OPERATE_RET app_alarm_set_in_minutes(uint32_t minutes);
+void        app_alarm_stop(void);
+bool        app_alarm_is_ringing(void);
 void        app_alarm_upload(void);
 
 #ifdef __cplusplus

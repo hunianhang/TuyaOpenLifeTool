@@ -19,6 +19,7 @@ void ui_set_user_msg(const char *msg);
 void ui_set_assistant_msg(const char *msg);
 void ui_set_system_msg(const char *msg);
 void ui_dashboard_refresh(void);
+void ui_alarm_stop_show(bool show);
 
 #ifdef __cplusplus
 }
