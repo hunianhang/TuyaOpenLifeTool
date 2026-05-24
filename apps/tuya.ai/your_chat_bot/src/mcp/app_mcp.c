@@ -6,6 +6,8 @@
  */
 
 #include "app_mcp.h"
+#include "tuya_ai_agent.h"
+#include "wukong_ai_mcp_server.h"
 
 #if defined(ENABLE_EX_MODULE_CAMERA) && (ENABLE_EX_MODULE_CAMERA == 1)
 #include "app_camera.h"
@@ -260,6 +262,7 @@ static OPERATE_RET __app_mcp_init(void *data)
     OPERATE_RET rt = OPRT_OK;
 
     wukong_mcp_server_init("Tuya MCP Server", "1.0");
+    tuya_ai_agent_mcp_set_cb(wukong_mcp_server_parse_message, NULL);
 
     // device.info.get tool
     TUYA_CALL_ERR_GOTO(WUKONG_MCP_TOOL_ADD("device.info.get",
