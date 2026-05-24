@@ -16,7 +16,9 @@
 #include "tuya_iot.h"
 #include "tuya_lvgl.h"
 
+#if !defined(ENABLE_GUI2_CARD)
 #include "screens/ui_setting.h"
+#endif
 #include "ui.h"
 
 #include "tal_api.h"
@@ -98,8 +100,10 @@ static void __app_ui_get_date_tm_cb(TIMER_ID timer_id, void *arg)
 
     // update date time display
     tuya_lvgl_mutex_lock();
+#if !defined(ENABLE_GUI2_CARD)
     ui_setting_date_update(year, month, day);
     ui_setting_time_update(hour, minute);
+#endif
     tuya_lvgl_mutex_unlock();
 
     app_ui_get_date_time_loop_start();
@@ -191,7 +195,9 @@ static int __app_ui_network_status_change_cb(void *data)
     uint8_t         connected  = (net_status == NETMGR_LINK_UP) ? 1 : 0;
 
     tuya_lvgl_mutex_lock();
+#if !defined(ENABLE_GUI2_CARD)
     ui_setting_wifi_update(connected);
+#endif
     ui_set_system_msg(connected ? SYSTEM_MSG_WIFI_SSID : SYSTEM_MSG_WIFI_DISCONNECTED);
     tuya_lvgl_mutex_unlock();
 
