@@ -16,6 +16,14 @@
 #include "lang_config.h"
 #endif
 
+#if defined(ENABLE_ALARM) && (ENABLE_ALARM == 1)
+#include "app_alarm.h"
+#endif
+
+#if defined(ENABLE_DASHBOARD) && (ENABLE_DASHBOARD == 1)
+#include "app_dashboard.h"
+#endif
+
 #include "tal_api.h"
 #include "cJSON.h"
 
@@ -103,6 +111,136 @@ static OPERATE_RET __take_photo(const MCP_PROPERTY_LIST_T *properties, MCP_RETUR
 }
 #endif
 
+#if defined(ENABLE_ALARM) && (ENABLE_ALARM == 1)
+static OPERATE_RET __set_alarm(const MCP_PROPERTY_LIST_T *properties, MCP_RETURN_VALUE_T *ret_val, void *user_data)
+{
+    int    hour    = 7;
+    int    minute  = 0;
+    BOOL_T enabled = TRUE;
+    for (int i = 0; i < properties->count; i++) {
+        MCP_PROPERTY_T *p = properties->properties[i];
+        if (strcmp(p->name, "hour") == 0 && p->type == MCP_PROPERTY_TYPE_INTEGER)
+            hour = p->default_val.int_val;
+        else if (strcmp(p->name, "minute") == 0 && p->type == MCP_PROPERTY_TYPE_INTEGER)
+            minute = p->default_val.int_val;
+        else if (strcmp(p->name, "enabled") == 0 && p->type == MCP_PROPERTY_TYPE_BOOLEAN)
+            enabled = p->default_val.bool_val;
+    }
+    OPERATE_RET rt = app_alarm_set((uint8_t)hour, (uint8_t)minute, enabled != FALSE);
+    if (rt == OPRT_OK) app_alarm_upload();
+    wukong_mcp_return_value_set_bool(ret_val, rt == OPRT_OK ? TRUE : FALSE);
+    return OPRT_OK;
+}
+#endif
+
+#if defined(ENABLE_DASHBOARD) && (ENABLE_DASHBOARD == 1)
+static OPERATE_RET __dashboard_weather_set(const MCP_PROPERTY_LIST_T *properties, MCP_RETURN_VALUE_T *ret_val, void *user_data)
+{
+    const char *city = "Unknown", *condition = "Unknown";
+    int temp = 20, humidity = 50;
+    for (int i = 0; i < properties->count; i++) {
+        MCP_PROPERTY_T *p = properties->properties[i];
+        if (strcmp(p->name, "city") == 0 && p->type == MCP_PROPERTY_TYPE_STRING)
+            city = p->default_val.str_val;
+        else if (strcmp(p->name, "condition") == 0 && p->type == MCP_PROPERTY_TYPE_STRING)
+            condition = p->default_val.str_val;
+        else if (strcmp(p->name, "temp") == 0 && p->type == MCP_PROPERTY_TYPE_INTEGER)
+            temp = p->default_val.int_val;
+        else if (strcmp(p->name, "humidity") == 0 && p->type == MCP_PROPERTY_TYPE_INTEGER)
+            humidity = p->default_val.int_val;
+    }
+    OPERATE_RET rt = app_dashboard_weather_set(city, condition, temp, humidity);
+    wukong_mcp_return_value_set_bool(ret_val, rt == OPRT_OK ? TRUE : FALSE);
+    return OPRT_OK;
+}
+
+static OPERATE_RET __dashboard_todo_add(const MCP_PROPERTY_LIST_T *properties, MCP_RETURN_VALUE_T *ret_val, void *user_data)
+{
+    const char *text = NULL;
+    for (int i = 0; i < properties->count; i++) {
+        MCP_PROPERTY_T *p = properties->properties[i];
+        if (strcmp(p->name, "text") == 0 && p->type == MCP_PROPERTY_TYPE_STRING)
+            text = p->default_val.str_val;
+    }
+    if (!text) { wukong_mcp_return_value_set_bool(ret_val, FALSE); return OPRT_OK; }
+    int id = 0;
+    OPERATE_RET rt = app_dashboard_todo_add(text, &id);
+    ty_cJSON *json = ty_cJSON_CreateObject();
+    if (json) {
+        ty_cJSON_AddBoolToObject(json, "success", rt == OPRT_OK ? TRUE : FALSE);
+        ty_cJSON_AddNumberToObject(json, "id", id);
+        wukong_mcp_return_value_set_json(ret_val, json);
+    }
+    return OPRT_OK;
+}
+
+static OPERATE_RET __dashboard_todo_complete(const MCP_PROPERTY_LIST_T *properties, MCP_RETURN_VALUE_T *ret_val, void *user_data)
+{
+    int id = -1;
+    for (int i = 0; i < properties->count; i++) {
+        MCP_PROPERTY_T *p = properties->properties[i];
+        if (strcmp(p->name, "id") == 0 && p->type == MCP_PROPERTY_TYPE_INTEGER)
+            id = p->default_val.int_val;
+    }
+    OPERATE_RET rt = (id >= 0) ? app_dashboard_todo_complete(id) : OPRT_COM_ERROR;
+    wukong_mcp_return_value_set_bool(ret_val, rt == OPRT_OK ? TRUE : FALSE);
+    return OPRT_OK;
+}
+
+static OPERATE_RET __dashboard_todo_delete(const MCP_PROPERTY_LIST_T *properties, MCP_RETURN_VALUE_T *ret_val, void *user_data)
+{
+    int id = -1;
+    for (int i = 0; i < properties->count; i++) {
+        MCP_PROPERTY_T *p = properties->properties[i];
+        if (strcmp(p->name, "id") == 0 && p->type == MCP_PROPERTY_TYPE_INTEGER)
+            id = p->default_val.int_val;
+    }
+    OPERATE_RET rt = (id >= 0) ? app_dashboard_todo_delete(id) : OPRT_COM_ERROR;
+    wukong_mcp_return_value_set_bool(ret_val, rt == OPRT_OK ? TRUE : FALSE);
+    return OPRT_OK;
+}
+
+static OPERATE_RET __dashboard_medicine_add(const MCP_PROPERTY_LIST_T *properties, MCP_RETURN_VALUE_T *ret_val, void *user_data)
+{
+    const char *name = NULL, *dosage = "1";
+    int hour = 8, minute = 0;
+    for (int i = 0; i < properties->count; i++) {
+        MCP_PROPERTY_T *p = properties->properties[i];
+        if (strcmp(p->name, "name") == 0 && p->type == MCP_PROPERTY_TYPE_STRING)
+            name = p->default_val.str_val;
+        else if (strcmp(p->name, "dosage") == 0 && p->type == MCP_PROPERTY_TYPE_STRING)
+            dosage = p->default_val.str_val;
+        else if (strcmp(p->name, "hour") == 0 && p->type == MCP_PROPERTY_TYPE_INTEGER)
+            hour = p->default_val.int_val;
+        else if (strcmp(p->name, "minute") == 0 && p->type == MCP_PROPERTY_TYPE_INTEGER)
+            minute = p->default_val.int_val;
+    }
+    if (!name) { wukong_mcp_return_value_set_bool(ret_val, FALSE); return OPRT_OK; }
+    int id = 0;
+    OPERATE_RET rt = app_dashboard_medicine_add(name, dosage, (uint8_t)hour, (uint8_t)minute, &id);
+    ty_cJSON *json = ty_cJSON_CreateObject();
+    if (json) {
+        ty_cJSON_AddBoolToObject(json, "success", rt == OPRT_OK ? TRUE : FALSE);
+        ty_cJSON_AddNumberToObject(json, "id", id);
+        wukong_mcp_return_value_set_json(ret_val, json);
+    }
+    return OPRT_OK;
+}
+
+static OPERATE_RET __dashboard_medicine_delete(const MCP_PROPERTY_LIST_T *properties, MCP_RETURN_VALUE_T *ret_val, void *user_data)
+{
+    int id = -1;
+    for (int i = 0; i < properties->count; i++) {
+        MCP_PROPERTY_T *p = properties->properties[i];
+        if (strcmp(p->name, "id") == 0 && p->type == MCP_PROPERTY_TYPE_INTEGER)
+            id = p->default_val.int_val;
+    }
+    OPERATE_RET rt = (id >= 0) ? app_dashboard_medicine_delete(id) : OPRT_COM_ERROR;
+    wukong_mcp_return_value_set_bool(ret_val, rt == OPRT_OK ? TRUE : FALSE);
+    return OPRT_OK;
+}
+#endif /* ENABLE_DASHBOARD */
+
 static OPERATE_RET __app_mcp_init(void *data)
 {
     OPERATE_RET rt = OPRT_OK;
@@ -139,6 +277,61 @@ static OPERATE_RET __app_mcp_init(void *data)
                                            __set_volume, NULL,
                                            MCP_PROP_INT_RANGE("volume", "The volume level to set (0-100).", 0, 100)),
                        __ERR);
+
+#if defined(ENABLE_ALARM) && (ENABLE_ALARM == 1)
+    TUYA_CALL_ERR_GOTO(WUKONG_MCP_TOOL_ADD("device.alarm.set",
+                                           "Sets the daily wake-up alarm.\n"
+                                           "Parameters: hour (0-23), minute (0-59), enabled (bool).",
+                                           __set_alarm, NULL,
+                                           MCP_PROP_INT_RANGE("hour", "Hour (0-23).", 0, 23),
+                                           MCP_PROP_INT_RANGE("minute", "Minute (0-59).", 0, 59),
+                                           MCP_PROP_BOOL_DEF("enabled", "Enable or disable.", TRUE)),
+                       __ERR);
+#endif
+
+#if defined(ENABLE_DASHBOARD) && (ENABLE_DASHBOARD == 1)
+    TUYA_CALL_ERR_GOTO(WUKONG_MCP_TOOL_ADD("dashboard.weather.set",
+                                           "Set weather on dashboard. Parameters: city, condition, temp (°C), humidity (%).",
+                                           __dashboard_weather_set, NULL,
+                                           MCP_PROP_STR("city", "City name."),
+                                           MCP_PROP_STR("condition", "Weather condition."),
+                                           MCP_PROP_INT_RANGE("temp", "Temperature in Celsius.", -50, 60),
+                                           MCP_PROP_INT_RANGE("humidity", "Humidity 0-100.", 0, 100)),
+                       __ERR);
+
+    TUYA_CALL_ERR_GOTO(WUKONG_MCP_TOOL_ADD("dashboard.todo.add",
+                                           "Add a todo item. Returns {success, id}.",
+                                           __dashboard_todo_add, NULL,
+                                           MCP_PROP_STR("text", "Todo text.")),
+                       __ERR);
+
+    TUYA_CALL_ERR_GOTO(WUKONG_MCP_TOOL_ADD("dashboard.todo.complete",
+                                           "Mark a todo item as done.",
+                                           __dashboard_todo_complete, NULL,
+                                           MCP_PROP_INT_RANGE("id", "Item ID.", 0, 9999)),
+                       __ERR);
+
+    TUYA_CALL_ERR_GOTO(WUKONG_MCP_TOOL_ADD("dashboard.todo.delete",
+                                           "Delete a todo item.",
+                                           __dashboard_todo_delete, NULL,
+                                           MCP_PROP_INT_RANGE("id", "Item ID.", 0, 9999)),
+                       __ERR);
+
+    TUYA_CALL_ERR_GOTO(WUKONG_MCP_TOOL_ADD("dashboard.medicine.add",
+                                           "Add a medicine reminder. Returns {success, id}.",
+                                           __dashboard_medicine_add, NULL,
+                                           MCP_PROP_STR("name", "Medicine name."),
+                                           MCP_PROP_STR("dosage", "Dosage, e.g. '1 tablet'."),
+                                           MCP_PROP_INT_RANGE("hour", "Hour (0-23).", 0, 23),
+                                           MCP_PROP_INT_RANGE("minute", "Minute (0-59).", 0, 59)),
+                       __ERR);
+
+    TUYA_CALL_ERR_GOTO(WUKONG_MCP_TOOL_ADD("dashboard.medicine.delete",
+                                           "Delete a medicine reminder.",
+                                           __dashboard_medicine_delete, NULL,
+                                           MCP_PROP_INT_RANGE("id", "Reminder ID.", 0, 9999)),
+                       __ERR);
+#endif /* ENABLE_DASHBOARD */
 
     PR_DEBUG("app_mcp_init success");
     return rt;

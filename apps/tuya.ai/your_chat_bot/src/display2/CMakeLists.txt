@@ -21,6 +21,8 @@ if (CONFIG_ENABLE_GUI2_CHATBOT STREQUAL "y")
 add_subdirectory(${APP_MODULE_PATH}/ui_chatbot)
 elseif (CONFIG_ENABLE_GUI2_WECHAT STREQUAL "y")
 add_subdirectory(${APP_MODULE_PATH}/ui_wechat)
+elseif (CONFIG_ENABLE_GUI2_CARD STREQUAL "y")
+add_subdirectory(${APP_MODULE_PATH}/ui_card)
 endif()
 
 ########################################

@@ -110,6 +110,14 @@ if (CONFIG_ENABLE_BATTERY STREQUAL "y")
     add_subdirectory(${APP_PATH}/src/battery)
 endif()
 
+if (CONFIG_ENABLE_ALARM STREQUAL "y")
+    add_subdirectory(${APP_PATH}/src/alarm)
+endif()
+
+if (CONFIG_ENABLE_DASHBOARD STREQUAL "y")
+    add_subdirectory(${APP_PATH}/src/dashboard)
+endif()
+
 # Add mcp subdirectory
 add_subdirectory(${APP_PATH}/src/mcp)
 

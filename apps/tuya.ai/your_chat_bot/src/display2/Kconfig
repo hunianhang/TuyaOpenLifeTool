@@ -1,7 +1,7 @@
 if(ENABLE_CHAT_DISPLAY2) 
 choice
     prompt "Select Display UI Style"
-    default ENABLE_GUI2_WECHAT
+    default ENABLE_GUI2_CARD
     help
       Choose the user interface style for the chat display.
       Different styles provide different user experiences.
@@ -17,5 +17,11 @@ choice
         help
           Classic chatbot interface
           Features: single conversation thread, simple interaction.
+
+    config ENABLE_GUI2_CARD
+        bool "Card-Style UI (320x480)"
+        help
+          Dark card-style dashboard UI.
+          Features: weather, todo list, medicine reminders, AI chat screen.
 endchoice
 endif

@@ -54,6 +54,14 @@
 #include "app_battery.h"
 #endif
 
+#if defined(ENABLE_ALARM) && (ENABLE_ALARM == 1)
+#include "app_alarm.h"
+#endif
+
+#if defined(ENABLE_DASHBOARD) && (ENABLE_DASHBOARD == 1)
+#include "app_dashboard.h"
+#endif
+
 #if defined(ENABLE_QRCODE) && (ENABLE_QRCODE == 1)
 #include "qrencode_print.h"
 #endif
@@ -363,6 +371,20 @@ void user_main(void)
     ret = app_battery_init();
     if (ret != OPRT_OK) {
         PR_ERR("app_battery_init failed");
+    }
+#endif
+
+#if defined(ENABLE_ALARM) && (ENABLE_ALARM == 1)
+    ret = app_alarm_init();
+    if (ret != OPRT_OK) {
+        PR_ERR("app_alarm_init failed");
+    }
+#endif
+
+#if defined(ENABLE_DASHBOARD) && (ENABLE_DASHBOARD == 1)
+    ret = app_dashboard_init();
+    if (ret != OPRT_OK) {
+        PR_ERR("app_dashboard_init failed");
     }
 #endif
 
