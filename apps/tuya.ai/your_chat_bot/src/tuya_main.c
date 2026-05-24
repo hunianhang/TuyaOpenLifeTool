@@ -66,6 +66,8 @@
 #include "qrencode_print.h"
 #endif
 
+#include "app_timezone.h"
+
 /* Tuya device handle */
 tuya_iot_client_t ai_client;
 
@@ -197,6 +199,7 @@ void user_event_handler_on(tuya_iot_client_t *client, tuya_event_msg_t *event)
     case TUYA_EVENT_MQTT_CONNECTED:
         PR_INFO("Device MQTT Connected!");
         tal_event_publish(EVENT_MQTT_CONNECTED, NULL);
+        app_timezone_dst_apply();
 
         static uint8_t first = 1;
         if (first) {
@@ -387,6 +390,8 @@ void user_main(void)
         PR_ERR("app_dashboard_init failed");
     }
 #endif
+
+    app_timezone_dst_init();
 
     app_system_info();
 
